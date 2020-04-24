@@ -16,7 +16,7 @@ from joeynmt.helpers import bpe_postprocess, load_config, make_logger,\
 from joeynmt.metrics import bleu, chrf, token_accuracy, sequence_accuracy
 from joeynmt.model import build_model, Model
 from joeynmt.batch import Batch
-from joeynmt.data import load_data, make_data_iter, MonoDataset
+from joeynmt.data import load_data, make_data_iter, MonoDataset, MonoFactorDataset
 from joeynmt.constants import UNK_TOKEN, PAD_TOKEN, EOS_TOKEN
 from joeynmt.vocabulary import Vocabulary
 
@@ -32,7 +32,7 @@ def validate_on_data(model: Model, data: Dataset,
                      batch_type: str = "sentence"
                      ) \
         -> (float, float, float, List[str], List[List[str]], List[str],
-            List[str], List[List[str]], List[np.array]):
+            List[str], List[List[str]], List[np.array], List[str], List[List[str]]):
     """
     Generate translations for the given data.
     If `loss_function` is not None and references are given,
@@ -63,7 +63,9 @@ def validate_on_data(model: Model, data: Dataset,
         - valid_references: validation references,
         - valid_hypotheses: validation_hypotheses,
         - decoded_valid: raw validation hypotheses (before post-processing),
-        - valid_attention_scores: attention scores for validation hypotheses
+        - valid_attention_scores: attention scores for validation hypotheses,
+        - valid_factors: validation source factors,
+        - valid_factors_raw: validation source factors (before post-processing)
     """
     if batch_size > 1000 and batch_type == "sentence":
         logger.warning(
@@ -75,6 +77,13 @@ def validate_on_data(model: Model, data: Dataset,
         dataset=data, batch_size=batch_size, batch_type=batch_type,
         shuffle=False, train=False)
     valid_sources_raw = data.src
+
+    if hasattr(data, "factor"):
+        valid_factors_raw = data.factor
+    else:
+        valid_factors_raw = None
+
+
     pad_index = model.src_vocab.stoi[PAD_TOKEN]
     # disable dropout
     model.eval()
@@ -132,9 +141,13 @@ def validate_on_data(model: Model, data: Dataset,
         valid_references = [join_char.join(t) for t in data.trg]
         valid_hypotheses = [join_char.join(t) for t in decoded_valid]
 
+        if valid_factors_raw is not None:
+            valid_factors = [join_char.join(f) for f in data.factor]
+
         # post-process
         if level == "bpe":
             valid_sources = [bpe_postprocess(s) for s in valid_sources]
+
             valid_references = [bpe_postprocess(v)
                                 for v in valid_references]
             valid_hypotheses = [bpe_postprocess(v) for
@@ -161,7 +174,7 @@ def validate_on_data(model: Model, data: Dataset,
 
     return current_valid_score, valid_loss, valid_ppl, valid_sources, \
         valid_sources_raw, valid_references, valid_hypotheses, \
-        decoded_valid, valid_attention_scores
+        decoded_valid, valid_attention_scores, valid_factors, valid_factors_raw
 
 
 # pylint: disable-msg=logging-too-many-args
@@ -238,7 +251,7 @@ def test(cfg_file,
 
         #pylint: disable=unused-variable
         score, loss, ppl, sources, sources_raw, references, hypotheses, \
-        hypotheses_raw, attention_scores = validate_on_data(
+        hypotheses_raw, attention_scores, valid_factors, valid_factors_raw = validate_on_data(
             model, data=data_set, batch_size=batch_size,
             batch_type=batch_type, level=level,
             max_output_length=max_output_length, eval_metric=eval_metric,
@@ -295,7 +308,7 @@ def translate(cfg_file, ckpt: str, output_path: str = None) -> None:
     :param output_path: path to output file
     """
 
-    def _load_line_as_data(line):
+    def _load_line_as_data(line, use_factor: bool = False):
         """ Create a dataset from one line via a temporary file. """
         # write src input to temporary file
         tmp_name = "tmp"
@@ -304,8 +317,12 @@ def translate(cfg_file, ckpt: str, output_path: str = None) -> None:
         with open(tmp_filename, "w") as tmp_file:
             tmp_file.write("{}\n".format(line))
 
-        test_data = MonoDataset(path=tmp_name, ext=tmp_suffix,
-                                field=src_field)
+        if use_factor:
+            test_data = MonoFactorDataset(path=tmp_name, ext=tmp_suffix,
+                                          src_field=src_field, factor_field=factor_field)
+        else:
+            test_data = MonoDataset(path=tmp_name, ext=tmp_suffix,
+                                    field=src_field)
 
         # remove temporary file
         if os.path.exists(tmp_filename):
@@ -319,7 +336,7 @@ def translate(cfg_file, ckpt: str, output_path: str = None) -> None:
         """ Translates given dataset, using parameters from outer scope. """
         # pylint: disable=unused-variable
         score, loss, ppl, sources, sources_raw, references, hypotheses, \
-        hypotheses_raw, attention_scores = validate_on_data(
+        hypotheses_raw, attention_scores, valid_factors, valid_factors_raw = validate_on_data(
             model, data=test_data, batch_size=batch_size,
             batch_type=batch_type, level=level,
             max_output_length=max_output_length, eval_metric="",
@@ -350,6 +367,14 @@ def translate(cfg_file, ckpt: str, output_path: str = None) -> None:
     src_vocab = Vocabulary(file=src_vocab_file)
     trg_vocab = Vocabulary(file=trg_vocab_file)
 
+    use_factor = cfg["data"].get("use_factor", False)
+    if use_factor:
+        factor_vocab_file = cfg["data"].get(
+        "factor_vocab", cfg["training"]["model_dir"] + "/factor_vocab.txt")
+        factor_vocab = Vocabulary(file=factor_vocab_file)
+    else:
+        factor_vocab = None
+
     data_cfg = cfg["data"]
     level = data_cfg["level"]
     lowercase = data_cfg["lowercase"]
@@ -363,11 +388,21 @@ def translate(cfg_file, ckpt: str, output_path: str = None) -> None:
                       include_lengths=True)
     src_field.vocab = src_vocab
 
+    if use_factor:
+        factor_field = Field(init_token=None, eos_token=EOS_TOKEN,
+                          pad_token=PAD_TOKEN, tokenize=tok_fun,
+                          batch_first=True, lower=lowercase,
+                          unk_token=UNK_TOKEN,
+                          include_lengths=True)
+        factor_field.vocab = factor_vocab
+    else:
+        factor_field = None
+
     # load model state from disk
     model_checkpoint = load_checkpoint(ckpt, use_cuda=use_cuda)
 
     # build model and load parameters into it
-    model = build_model(cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
+    model = build_model(cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab, factor_vocab=factor_vocab)
     model.load_state_dict(model_checkpoint["model_state"])
 
     if use_cuda:
@@ -383,7 +418,10 @@ def translate(cfg_file, ckpt: str, output_path: str = None) -> None:
 
     if not sys.stdin.isatty():
         # input file given
-        test_data = MonoDataset(path=sys.stdin, ext="", field=src_field)
+        if use_factor:
+            test_data = MonoFactorDataset(path=sys.stdin, ext="", src_field=src_field, factor_field=factor_field)
+        else:
+            test_data = MonoDataset(path=sys.stdin, ext="", field=src_field)
         hypotheses = _translate_data(test_data)
 
         if output_path is not None:
@@ -410,7 +448,7 @@ def translate(cfg_file, ckpt: str, output_path: str = None) -> None:
                     break
 
                 # every line has to be made into dataset
-                test_data = _load_line_as_data(line=src_input)
+                test_data = _load_line_as_data(line=src_input, use_factor=use_factor)
 
                 hypotheses = _translate_data(test_data)
                 print("JoeyNMT: {}".format(hypotheses[0]))

@@ -1,6 +1,7 @@
 import math
 from torch import nn, Tensor
 from joeynmt.helpers import freeze_params
+from typing import List
 
 
 class Embeddings(nn.Module):
@@ -16,7 +17,7 @@ class Embeddings(nn.Module):
                  vocab_size: int = 0,
                  padding_idx: int = 1,
                  freeze: bool = False,
-                 **kwargs):
+                 **kwargs) -> None:
         """
         Create new embeddings for the vocabulary.
         Use scaling for the Transformer.
@@ -53,3 +54,16 @@ class Embeddings(nn.Module):
     def __repr__(self):
         return "%s(embedding_dim=%d, vocab_size=%d)" % (
             self.__class__.__name__, self.embedding_dim, self.vocab_size)
+
+
+def concatenate_embeddings(embedding_sequence: List[Tensor]) -> Tensor:
+    """
+
+    :param embedding_sequence:
+    :return:
+    """
+    # assert same shapes, make sure scale, padding_idx and freeze are the same
+
+    # make sure to set .embedding_dim correctly to sum of all embedding dims
+
+    print(embedding_sequence[0].shape)
