@@ -143,6 +143,8 @@ def validate_on_data(model: Model, data: Dataset,
 
         if valid_factors_raw is not None:
             valid_factors = [join_char.join(f) for f in data.factor]
+        else:
+            valid_factors = None
 
         # post-process
         if level == "bpe":
