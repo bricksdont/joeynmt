@@ -75,15 +75,15 @@ def load_data(data_cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
                            batch_first=True, lower=lowercase,
                            include_lengths=True)
 
-    exts = {"." + src_lang, "." + trg_lang}
-    fields = {src_field, trg_field}
-
     if use_factor:
-        exts.add(".factor")
-        fields.add(factor_field)
+        exts = ("." + src_lang, "." + trg_lang, ".factor",)
+        fields = (src_field, trg_field, factor_field,)
 
         dataset_class = FactoredTranslationDataset
     else:
+        exts = ("." + src_lang, "." + trg_lang,)
+        fields = (src_field, trg_field,)
+
         dataset_class = TranslationDataset
 
     train_data = dataset_class(path=train_path,
