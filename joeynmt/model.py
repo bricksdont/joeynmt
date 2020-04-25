@@ -256,12 +256,12 @@ def build_model(cfg: dict = None,
             **cfg["decoder"]["embeddings"], vocab_size=len(trg_vocab),
             padding_idx=trg_padding_idx)
 
-    use_factor = cfg["data"].get("use_factor", False)
+    if factor_vocab is None:
+        use_factor = False
+    else:
+        use_factor = True
 
     if use_factor:
-        if factor_vocab is None:
-            raise ConfigurationError("Factor vocab must exist if use_factor is True.")
-
         factor_embed = Embeddings(
             **cfg["encoder"]["factor_embeddings"], vocab_size=len(factor_vocab),
             padding_idx=factor_padding_idx)
