@@ -1,7 +1,7 @@
 import math
+import torch
 from torch import nn, Tensor
 from joeynmt.helpers import freeze_params
-from typing import List
 
 
 class Embeddings(nn.Module):
@@ -56,14 +56,20 @@ class Embeddings(nn.Module):
             self.__class__.__name__, self.embedding_dim, self.vocab_size)
 
 
-def concatenate_embeddings(embedding_sequence: List[Tensor]) -> Tensor:
+def concatenate_embeddings(src_embedded: Tensor, factor_embedded: Tensor) -> Tensor:
     """
+    Concatenate embeddings to combine source words and their factors.
 
-    :param embedding_sequence:
+    :param src_embedded:
+    :param factor_embedded:
     :return:
     """
-    # assert same shapes, make sure scale, padding_idx and freeze are the same
 
-    # make sure to set .embedding_dim correctly to sum of all embedding dims
+    print(src_embedded.shape)
+    print(factor_embedded.shape)
 
-    print(embedding_sequence[0].shape)
+    concat_embedded = torch.cat((src_embedded, factor_embedded), -1)
+
+    print(concat_embedded.shape)
+
+    return concat_embedded

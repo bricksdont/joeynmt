@@ -105,7 +105,7 @@ class Model(nn.Module):
             assert self.factor_embed is not None, "Factor embedding must exist if factors are in data batch."
 
             factor_embedded = self.factor_embed(factor)
-            src_embedded = concatenate_embeddings([src_embedded, factor_embedded])
+            src_embedded = concatenate_embeddings(src_embedded=src_embedded, factor_embedded=factor_embedded)
 
         return self.encoder(src_embedded, src_length, src_mask)
 
