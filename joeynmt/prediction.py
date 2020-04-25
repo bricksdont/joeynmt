@@ -78,7 +78,7 @@ def validate_on_data(model: Model, data: Dataset,
         shuffle=False, train=False)
     valid_sources_raw = data.src
 
-    if hasattr(data, "factor"):
+    if "factor" in data.fields:
         valid_factors_raw = data.factor
     else:
         valid_factors_raw = None
