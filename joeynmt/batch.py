@@ -33,7 +33,7 @@ class Batch:
         self.use_cuda = use_cuda
 
         if hasattr(torch_batch, "factor"):
-            self.factor = torch_batch.factor
+            self.factor, self.factor_lengths = torch_batch.factor
 
         if hasattr(torch_batch, "trg"):
             trg, trg_lengths = torch_batch.trg
@@ -88,7 +88,9 @@ class Batch:
 
         if self.factor is not None:
             sorted_factor = self.factor[perm_index]
+            sorted_factor_lengths = self.factor_lengths[perm_index]
             self.factor = sorted_factor
+            self.factor_lengths = sorted_factor_lengths
 
         self.src = sorted_src
         self.src_lengths = sorted_src_lengths
