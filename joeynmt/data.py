@@ -267,7 +267,7 @@ class MonoFactorDataset(Dataset):
         """
 
         fields = [('src', src_field),
-                  'factor', factor_field]
+                  ('factor', factor_field)]
 
         if hasattr(path, "readline"):  # special usage: stdin
             src_file = path
@@ -282,12 +282,12 @@ class MonoFactorDataset(Dataset):
             # assuming ||| separator between source and factors
             parts = [part.strip() for part in src_line.split("|||")]
 
-            src_line = parts[0]
-            factor_line = parts[1]
+            src_part = parts[0]
+            factor_part = parts[1]
 
-            if src_line != '' and factor_line != '':
+            if src_part != '' and factor_part != '':
                 examples.append(data.Example.fromlist(
-                    [src_line, factor_line], fields))
+                    [src_part, factor_part], fields))
 
         src_file.close()
 
