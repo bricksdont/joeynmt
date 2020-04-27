@@ -419,7 +419,7 @@ class TrainManager:
                         hypotheses=valid_hypotheses,
                         references=valid_references,
                         factors=valid_factors,
-                        factors_raw=[f for f in valid_factors_raw]
+                        factors_raw=[f for f in valid_factors_raw] if valid_factors_raw is not None else None
                     )
 
                     valid_duration = time.time() - valid_start_time
