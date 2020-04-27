@@ -36,7 +36,7 @@ class Model(nn.Module):
                  trg_vocab: Vocabulary,
                  factor_embed: Optional[Embeddings] = None,
                  factor_vocab: Optional[Vocabulary] = None,
-                 factor_combine: str) -> None:
+                 factor_combine: str = "add") -> None:
         """
         Create a new encoder-decoder model
 
@@ -319,7 +319,6 @@ def build_model(cfg: dict = None,
         decoder = RecurrentDecoder(
             **cfg["decoder"], encoder=encoder, vocab_size=len(trg_vocab),
             emb_size=trg_embed.embedding_dim, emb_dropout=dec_emb_dropout)
-
 
     model = Model(encoder=encoder, decoder=decoder,
                   src_embed=src_embed, trg_embed=trg_embed,
