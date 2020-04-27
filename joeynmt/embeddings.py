@@ -71,12 +71,7 @@ def concatenate_embeddings(src_embedded: Tensor, factor_embedded: Tensor) -> Ten
     assert src_embedded.shape[0] == factor_embedded.shape[0]
     assert src_embedded.shape[1] == factor_embedded.shape[1]
 
-    print(src_embedded.shape)
-    print(factor_embedded.shape)
-
     concat_embedded = torch.cat((src_embedded, factor_embedded), -1)
-
-    print(concat_embedded.shape)
 
     return concat_embedded
 
@@ -97,11 +92,6 @@ def sum_embeddings(src_embedded: Tensor, factor_embedded: Tensor) -> Tensor:
     assert src_embedded.shape[1] == factor_embedded.shape[1]
     assert src_embedded.shape[2] == factor_embedded.shape[2]
 
-    print(src_embedded.shape)
-    print(factor_embedded.shape)
-
     sum_embedded = src_embedded + factor_embedded
-
-    print(sum_embedded.shape)
 
     return sum_embedded
