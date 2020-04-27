@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from typing import Optional
 
 from joeynmt.initialization import initialize_model
-from joeynmt.embeddings import Embeddings, concatenate_embeddings
+from joeynmt.embeddings import Embeddings, concatenate_embeddings, sum_embeddings
 from joeynmt.encoders import Encoder, RecurrentEncoder, TransformerEncoder
 from joeynmt.decoders import Decoder, RecurrentDecoder, TransformerDecoder
 from joeynmt.constants import PAD_TOKEN, EOS_TOKEN, BOS_TOKEN
@@ -35,7 +35,8 @@ class Model(nn.Module):
                  src_vocab: Vocabulary,
                  trg_vocab: Vocabulary,
                  factor_embed: Optional[Embeddings] = None,
-                 factor_vocab: Optional[Vocabulary] = None) -> None:
+                 factor_vocab: Optional[Vocabulary] = None,
+                 factor_combine: str) -> None:
         """
         Create a new encoder-decoder model
 
@@ -45,6 +46,7 @@ class Model(nn.Module):
         :param trg_embed: target embedding
         :param src_vocab: source vocabulary
         :param trg_vocab: target vocabulary
+        :param factor_combine: How to combine source and factor embeddings
         """
         super(Model, self).__init__()
 
@@ -59,6 +61,7 @@ class Model(nn.Module):
         self.bos_index = self.trg_vocab.stoi[BOS_TOKEN]
         self.pad_index = self.trg_vocab.stoi[PAD_TOKEN]
         self.eos_index = self.trg_vocab.stoi[EOS_TOKEN]
+        self.factor_combine = factor_combine
 
     # pylint: disable=arguments-differ
     def forward(self, src: Tensor, trg_input: Tensor, src_mask: Tensor,
@@ -105,7 +108,11 @@ class Model(nn.Module):
             assert self.factor_embed is not None, "Factor embedding must exist if factors are in data batch."
 
             factor_embedded = self.factor_embed(factor)
-            src_embedded = concatenate_embeddings(src_embedded=src_embedded, factor_embedded=factor_embedded)
+
+            if self.factor_combine == "concatenate":
+                src_embedded = concatenate_embeddings(src_embedded=src_embedded, factor_embedded=factor_embedded)
+            else:
+                src_embedded = sum_embeddings(src_embedded=src_embedded, factor_embedded=factor_embedded)
 
         return self.encoder(src_embedded, src_length, src_mask)
 
@@ -272,10 +279,21 @@ def build_model(cfg: dict = None,
     enc_dropout = cfg["encoder"].get("dropout", 0.)
     enc_emb_dropout = cfg["encoder"]["embeddings"].get("dropout", enc_dropout)
 
-    if use_factor:
+    factor_combine = cfg["encoder"].get("factor_combine", "add")
+
+    if factor_combine not in ["add", "concatenate"]:
+        raise ConfigurationError(
+            "Factor combination method must be one of 'add', 'concatenate'.")
+
+    if use_factor and factor_combine == "concatenate":
         encoder_emb_size = src_embed.embedding_dim + factor_embed.embedding_dim
     else:
         encoder_emb_size = src_embed.embedding_dim
+
+    if use_factor and factor_combine == "add":
+        if src_embed.embedding_dim != factor_embed.embedding_dim:
+            raise ConfigurationError("For factor combination method 'add', source embeddings and "
+                                     "factor embeddings must be of the same size.")
 
     if cfg["encoder"].get("type", "recurrent") == "transformer":
         assert encoder_emb_size == \
@@ -302,9 +320,12 @@ def build_model(cfg: dict = None,
             **cfg["decoder"], encoder=encoder, vocab_size=len(trg_vocab),
             emb_size=trg_embed.embedding_dim, emb_dropout=dec_emb_dropout)
 
+
     model = Model(encoder=encoder, decoder=decoder,
                   src_embed=src_embed, trg_embed=trg_embed,
-                  src_vocab=src_vocab, trg_vocab=trg_vocab)
+                  src_vocab=src_vocab, trg_vocab=trg_vocab,
+                  factor_embed=factor_embed, factor_vocab=factor_vocab,
+                  factor_combine=factor_combine)
 
     # tie softmax layer with trg embeddings
     if cfg.get("tied_softmax", False):
@@ -315,8 +336,7 @@ def build_model(cfg: dict = None,
         else:
             raise ConfigurationError(
                 "For tied_softmax, the decoder embedding_dim and decoder "
-                "hidden_size must be the same."
-                "The decoder must be a Transformer.")
+                "hidden_size must be the same.")
 
     # custom initialization of model parameters
     initialize_model(model, cfg, src_padding_idx, trg_padding_idx, factor_padding_idx)

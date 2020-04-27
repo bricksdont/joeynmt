@@ -60,10 +60,16 @@ def concatenate_embeddings(src_embedded: Tensor, factor_embedded: Tensor) -> Ten
     """
     Concatenate embeddings to combine source words and their factors.
 
-    :param src_embedded:
+    :param src_embedded: embedded src inputs,
+        shape (batch_size, src_len, src_embed_size)
     :param factor_embedded:
+        shape (batch_size, src_len, factor_embed_size)
     :return:
     """
+
+    # check shapes
+    assert src_embedded.shape[0] == factor_embedded.shape[0]
+    assert src_embedded.shape[1] == factor_embedded.shape[1]
 
     print(src_embedded.shape)
     print(factor_embedded.shape)
@@ -73,3 +79,29 @@ def concatenate_embeddings(src_embedded: Tensor, factor_embedded: Tensor) -> Ten
     print(concat_embedded.shape)
 
     return concat_embedded
+
+
+def sum_embeddings(src_embedded: Tensor, factor_embedded: Tensor) -> Tensor:
+    """
+    Sum embeddings to combine source words and their factors.
+
+    :param src_embedded: embedded src inputs,
+        shape (batch_size, src_len, src_embed_size)
+    :param factor_embedded:
+        shape (batch_size, src_len, factor_embed_size)
+    :return:
+    """
+
+    # check shapes
+    assert src_embedded.shape[0] == factor_embedded.shape[0]
+    assert src_embedded.shape[1] == factor_embedded.shape[1]
+    assert src_embedded.shape[2] == factor_embedded.shape[2]
+
+    print(src_embedded.shape)
+    print(factor_embedded.shape)
+
+    sum_embedded = src_embedded + factor_embedded
+
+    print(sum_embedded.shape)
+
+    return sum_embedded

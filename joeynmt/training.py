@@ -286,6 +286,7 @@ class TrainManager:
             train_data) % (self.batch_multiplier * self.batch_size)
 
         for epoch_no in range(self.epochs):
+
             self.logger.info("EPOCH %d", epoch_no + 1)
 
             if self.scheduler is not None and self.scheduler_step_at == "epoch":

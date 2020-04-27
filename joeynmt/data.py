@@ -69,7 +69,7 @@ def load_data(data_cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
                            batch_first=True, lower=lowercase,
                            include_lengths=True)
 
-    factor_field = data.Field(init_token=BOS_TOKEN, eos_token=EOS_TOKEN,
+    factor_field = data.Field(init_token=None, eos_token=EOS_TOKEN,
                            pad_token=PAD_TOKEN, tokenize=tok_fun,
                            unk_token=UNK_TOKEN,
                            batch_first=True, lower=lowercase,
@@ -100,9 +100,8 @@ def load_data(data_cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
     trg_max_size = data_cfg.get("trg_voc_limit", sys.maxsize)
     trg_min_freq = data_cfg.get("trg_voc_min_freq", 1)
 
-    # assuming that there are only very few different factors
-    factor_max_size = sys.maxsize
-    factor_min_freq = 1
+    factor_max_size = data_cfg.get("factor_voc_limit", sys.maxsize)
+    factor_min_freq = data_cfg.get("factor_voc_min_freq", 1)
 
     src_vocab_file = data_cfg.get("src_vocab", None)
     trg_vocab_file = data_cfg.get("trg_vocab", None)
